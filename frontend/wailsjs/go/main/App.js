@@ -26,12 +26,20 @@ export function RenameFile(arg1, arg2) {
   return window['go']['main']['App']['RenameFile'](arg1, arg2);
 }
 
+export function RunCommand(arg1) {
+  return window['go']['main']['App']['RunCommand'](arg1);
+}
+
 export function SaveFileDialog(arg1) {
   return window['go']['main']['App']['SaveFileDialog'](arg1);
 }
 
 export function SendCmd(arg1) {
   return window['go']['main']['App']['SendCmd'](arg1);
+}
+
+export function TouchFile(arg1) {
+  return window['go']['main']['App']['TouchFile'](arg1);
 }
 
 export function UploadFileBin(arg1, arg2) {

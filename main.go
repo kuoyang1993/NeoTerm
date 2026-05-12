@@ -10,14 +10,31 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"golang.org/x/crypto/ssh"
-	"io"
 	"os"
-	"sync"
 	"time"
+     	"bytes"
+      
+ 	"io"
+	"sync"
 )
 
 //go:embed frontend/*
 var assets embed.FS
+
+// 全局SSH会话，复用你的连接
+var currentSSHClient *ssh.Client
+var sshSession *ssh.Session
+
+// 2. 这里粘贴【ConnInfo结构体】
+type ConnInfo struct {
+    Name     string `json:"name"`    // 连接名
+    Host     string `json:"host"`    // IP
+    Port     string `json:"port"`    // 端口
+    User     string `json:"user"`    // 用户名
+    Password string `json:"pwd"`     // 密码
+}
+var connFile = "connections.json"
+
 
 type App struct {
 	ctx context.Context
@@ -130,6 +147,30 @@ func (a *App) Mkdir(path string) string {
 	return "✅ 新建文件夹：" + path
 }
 
+// 新建空文件
+func (a *App) TouchFile(path string) string {
+	if term == nil { return "⚠️ 未连接" }
+	f, err := term.sftp.Create(path)
+	if err != nil { return "❌ 新建文件失败：" + err.Error() }
+	defer f.Close()
+	return "✅ 新建文件：" + path
+}
+
+// 前端调用：执行终端命令，返回输出
+func (a *App) RunCommand(cmd string) string {
+    if currentSSHClient == nil || sshSession == nil {
+        return "错误：未连接服务器！"
+    }
+    var buf bytes.Buffer
+    sshSession.Stdout = &buf
+    sshSession.Stderr = &buf
+    err := sshSession.Run(cmd)
+    if err != nil && err != io.EOF {
+        return buf.String() + "\n命令执行异常：" + err.Error()
+    }
+    return buf.String()
+}
+
 // 系统弹窗（下载用）
 func (a *App) SaveFileDialog(defaultName string) string {
 	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
@@ -143,7 +184,7 @@ func (a *App) SaveFileDialog(defaultName string) string {
 func main() {
 	app := NewApp()
 	err := wails.Run(&options.App{
-		Title:  "NeoTerm 仿WindTerm",
+		Title:  "NeoTerm",
 		Width:  1200,
 		Height: 800,
 		AssetServer: &assetserver.Options{

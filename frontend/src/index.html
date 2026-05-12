@@ -5,14 +5,12 @@
 <title>NeoTerm</title>
 <style>
 *{box-sizing:border-box;font-family:微软雅黑;margin:0;padding:0}
-body{display:flex;height:100vh;background:#1a1a1a;color:#eee;overflow:hidden}
+body{display:flex;height:100vh;background:#1a1a1a;color:#ffffff;overflow:hidden}
 
-/* 左侧面板：两大主按钮 */
-.left{width:320px;background:#222;padding:12px;border-right:1px solid #444;display:flex;flex-direction:column;gap:12px;height:100%}
-.main-btn{width:100%;height:65px;font-size:18px;background:#0066cc;color:#fff;border:none;border-radius:6px;cursor:pointer}
+.left{width:320px;background:#222;padding:12px;border-right:1px solid #444;display:flex;flex-direction:column;gap:12px;height:100%;position:relative;z-index:9999;}
+.main-btn{width:100%;height:50px;font-size:18px;background:#0066cc;color:#fff;border:none;border-radius:6px;cursor:pointer}
 .main-btn:hover{background:#0077ee}
 
-/* 弹窗容器 */
 .panel{flex:1;margin-top:10px;display:none;flex-direction:column;gap:8px;height:calc(100% - 140px)}
 .panel.active{display:flex}
 
@@ -22,14 +20,13 @@ button{width:100%;padding:8px;margin-top:8px;background:#0066cc;color:#fff;borde
 .section{margin-bottom:15px}
 h4{margin-bottom:8px;color:#4af}
 
-/* 重点修复：文件列表撑满剩余高度，可完整滚动 */
 #fileList{
   flex:1;
   background:#2a2a2a;
   padding:8px;
   overflow-y:auto;
   border:1px solid #444;
-  min-height:0; /* 解决滚动拉不动 */
+  min-height:0;
 }
 .file-item{padding:6px 8px;margin:2px 0;background:#333;cursor:pointer;border-radius:2px}
 .file-item:hover{background:#444}
@@ -41,19 +38,29 @@ h4{margin-bottom:8px;color:#4af}
 #backBtn{background:#444;margin-bottom:8px}
 #uploadBtn{margin:8px 0;}
 
-/* 右侧终端 */
 .main{flex:1;display:flex;flex-direction:column;padding:12px;height:100%}
 #output{flex:1;background:#000;padding:10px;overflow:auto;white-space:pre-wrap;margin-bottom:10px;border:1px solid #333}
-#cmd{width:100%;padding:8px;background:#222;color:#fff;border:1px solid #444}
+
+#term {
+  flex:1;
+  background:#000;
+  color:#fff;
+  padding:10px;
+  white-space: pre;
+  overflow:auto;
+  border:1px solid #333;
+  font-family: 'Courier New','Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+}
 </style>
 </head>
 <body>
 <div class="left">
-  <!-- 两个大主按钮 -->
   <button class="main-btn" onclick="showSSH()">+ 新建连接</button>
   <button class="main-btn" onclick="showFile()">📁 文件传输</button>
 
-  <!-- SSH连接面板 -->
   <div id="sshPanel" class="panel">
     <div class="section">
       <h4>SSH连接</h4>
@@ -66,235 +73,367 @@ h4{margin-bottom:8px;color:#4af}
     </div>
   </div>
 
-  <!-- 文件管理面板（重点修复高度） -->
   <div id="filePanel" class="panel">
     <h4>文件管理器</h4>
     <button id="backBtn" onclick="goBack()">⬆ 返回上级目录</button>
     <button id="uploadBtn" onclick="openUploadDir()">📤 上传到当前目录</button>
-    <button onclick="newFolder()">新建文件夹</button>
-    <button onclick="setLockPwd()">🔐 设置/修改锁屏密码</button>
-    <button onclick="clearLockPwd()">❌ 关闭自动锁屏</button>
-    <div class="form-item">
-      <input id="curDir" value="/root/python">
-      <button onclick="loadFiles()">刷新</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input id="curDir" value="/root/python" style="flex:1;">
+      <button onclick="showGlobalMenu(event)" style="width:40px;padding:0;">⋯</button>
     </div>
     <div id="fileList"></div>
   </div>
 </div>
 
 <div class="main">
-  <div id="output"></div>
-  <input id="cmd" placeholder="输入命令回车执行" onkeydown="if(event.key==='Enter')sendCmd()">
+<div id="term" contenteditable="true" 
+style="flex:1;background:#000;color:#ffffff;padding:10px;white-space:pre;overflow:auto;border:1px solid #333;font-family:Consolas,monospace;text-align:left;direction:ltr;unicode-bidi:bidi-override;writing-mode:horizontal-tb;" 
+onkeydown="onKeyPress(event)" 
+onfocus="setCursorEnd()"></div>
 </div>
 
 <div id="rightMenu">
   <div onclick="openUpload()">📤 上传</div>
   <div onclick="newFolder()">📁 新建文件夹</div>
+  <div onclick="newFile()">📄 新建文件</div>
   <div onclick="downloadFile()">📥 下载</div>
   <div onclick="renameFile()">✏️ 重命名</div>
   <div onclick="delFile()">🗑️ 删除</div>
+  <div onclick="setLockPwd()">🔐 设置锁屏密码</div>
+  <div onclick="clearLockPwd()">❌ 关闭锁屏</div>
+  <div onclick="loadFiles()">🔄 刷新</div>
+</div>
+
+<div id="globalMenu" style="position:fixed;width:160px;background:#222;border:1px solid #555;padding:4px;display:none;z-index:9999;user-select:none">
+  <div onclick="loadFiles()">🔄 刷新</div>
+  <div onclick="openUploadDir()">📤 上传到当前目录</div>
+  <div onclick="newFolder()">📁 新建文件夹</div>
+  <div onclick="newFile()">📄 新建文件</div>
+  <div onclick="goBack()">⬆ 返回上级目录</div>
+  <div onclick="setLockPwd()">🔐 设置锁屏密码</div>
+  <div onclick="clearLockPwd()">❌ 关闭锁屏</div>
 </div>
 <input type="file" id="fileInput">
 
 <script>
-const output = document.getElementById('output')
-const menu = document.getElementById('rightMenu')
-const fileInput = document.getElementById('fileInput')
-const curDir = document.getElementById('curDir')
-const cmd = document.getElementById('cmd')
-const sshPanel = document.getElementById('sshPanel')
-const filePanel = document.getElementById('filePanel')
-let selectedFile = ""
-let curPath = "/root/python"
+const menu = document.getElementById('rightMenu');
+const fileInput = document.getElementById('fileInput');
+const curDir = document.getElementById('curDir');
+const sshPanel = document.getElementById('sshPanel');
+const filePanel = document.getElementById('filePanel');
+const term = document.getElementById('term');
+let selectedFile = "";
+let curPath = "/root/python";
+let prompt = "[root@localhost ~]# ";
+let commandHistory = [];
+let historyIndex = -1;
 
-// 切换面板
 function showSSH(){
-  sshPanel.classList.add('active')
-  filePanel.classList.remove('active')
-}
-function showFile(){
-  sshPanel.classList.remove('active')
-  filePanel.classList.add('active')
+  sshPanel.classList.add('active');
+  filePanel.classList.remove('active');
 }
 
-// 连接SSH
+function showFile(){
+  sshPanel.classList.remove('active');
+  filePanel.classList.add('active');
+}
+
+function setCursorEnd() {
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.selectNodeContents(term);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 async function connect(){
-	const res = await window.go.main.App.Connect({
-		name:name.value, ip:ip.value, port:port.value, user:user.value, pwd:pwd.value
-	})
-	output.innerText += res + "\n"
-  output.scrollTop = output.scrollHeight
-	loadFiles()
+  const name = document.getElementById('name');
+  const ip = document.getElementById('ip');
+  const port = document.getElementById('port');
+  const user = document.getElementById('user');
+  const pwd = document.getElementById('pwd');
+  
+  const res = await window.go.main.App.Connect({
+    name: name.value, 
+    ip: ip.value, 
+    port: port.value, 
+    user: user.value, 
+    pwd: pwd.value
+  });
+  
+  term.innerText = prompt;
+  term.focus();
+  setTimeout(setCursorEnd, 10);
+  term.scrollTop = term.scrollHeight;
+  loadFiles();
 }
-// 发送命令
-async function sendCmd(){
-	const c = cmd.value.trim();
-	if(!c) return
-	output.innerText += "> " + c + "\n"
-	const res = await window.go.main.App.SendCmd(c)
-	output.innerText += res + "\n"
-	cmd.value = ""
-	output.scrollTop = output.scrollHeight
+
+async function onKeyPress(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    
+    const fullText = term.innerText;
+    const lines = fullText.split('\n');
+    const currentLine = lines[lines.length - 1];
+    
+    let cmd = '';
+    if (currentLine.startsWith(prompt)) {
+      cmd = currentLine.substring(prompt.length).trim();
+    } else {
+      cmd = currentLine.trim();
+    }
+    
+    if (!cmd) {
+      term.innerText += '\n' + prompt;
+      setTimeout(setCursorEnd, 10);
+      return;
+    }
+    
+    commandHistory.push(cmd);
+    historyIndex = commandHistory.length;
+    
+    try {
+      const out = await window.go.main.App.SendCmd(cmd);
+      term.innerText += '\n' + (out || '') + '\n' + prompt;
+    } catch (err) {
+      term.innerText += '\n错误: ' + err + '\n' + prompt;
+    }
+    
+    setTimeout(setCursorEnd, 10);
+    term.scrollTop = term.scrollHeight;
+  }
+  
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (commandHistory.length > 0 && historyIndex > 0) {
+      historyIndex--;
+      const fullText = term.innerText;
+      const lines = fullText.split('\n');
+      const lastLineIndex = lines.length - 1;
+      lines[lastLineIndex] = prompt + commandHistory[historyIndex];
+      term.innerText = lines.join('\n');
+      setTimeout(setCursorEnd, 10);
+    }
+  }
+  
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (historyIndex < commandHistory.length - 1) {
+      historyIndex++;
+      const fullText = term.innerText;
+      const lines = fullText.split('\n');
+      const lastLineIndex = lines.length - 1;
+      lines[lastLineIndex] = prompt + commandHistory[historyIndex];
+      term.innerText = lines.join('\n');
+    } else if (historyIndex === commandHistory.length - 1) {
+      historyIndex = commandHistory.length;
+      const fullText = term.innerText;
+      const lines = fullText.split('\n');
+      const lastLineIndex = lines.length - 1;
+      lines[lastLineIndex] = prompt;
+      term.innerText = lines.join('\n');
+    }
+    setTimeout(setCursorEnd, 10);
+  }
 }
-// 进入文件夹
+
 function enterFolder(folderName){
-  curPath = curPath === '/' ? `/${folderName}` : `${curPath}/${folderName}`
-  curDir.value = curPath
-  loadFiles()
+  curPath = curPath === '/' ? `/${folderName}` : `${curPath}/${folderName}`;
+  curDir.value = curPath;
+  loadFiles();
 }
-// 返回上级
+
 function goBack(){
-  const arr = curPath.split("/").filter(Boolean)
-  arr.pop()
-  curPath = arr.length ? '/' + arr.join('/') : '/'
-  curDir.value = curPath
-  loadFiles()
+  const arr = curPath.split("/").filter(Boolean);
+  arr.pop();
+  curPath = arr.length ? '/' + arr.join('/') : '/';
+  curDir.value = curPath;
+  loadFiles();
 }
-// 加载文件列表
+
 async function loadFiles(){
-	curPath = curDir.value
-	const list = await window.go.main.App.ListDir(curPath)
-	let html = ""
-	list.forEach(f=>{
-    const isFolder = !f.includes('.')
-    const cls = isFolder ? "file-item folder" : "file-item"
-    const dblClick = isFolder ? `ondblclick="enterFolder('${f}')"` : ""
-		html += `<div class="${cls}" ${dblClick} oncontextmenu="showMenu(event,'${curPath}/${f}')">${f}</div>`
-	})
-	fileList.innerHTML = html
+  curPath = curDir.value;
+  const list = await window.go.main.App.ListDir(curPath);
+  let html = "";
+  list.forEach(f => {
+    const isFolder = !f.includes('.');
+    const cls = isFolder ? "file-item folder" : "file-item";
+    const dblClick = isFolder ? `ondblclick="enterFolder('${f}')"` : "";
+    html += `<div class="${cls}" ${dblClick} oncontextmenu="showMenu(event,'${curPath}/${f}')">${f}</div>`;
+  });
+  document.getElementById('fileList').innerHTML = html;
 }
-// 右键菜单
-function showMenu(e,path){
+
+function showMenu(e, path){
   e.preventDefault();
   e.stopPropagation();
-	selectedFile = path
-	menu.style.display = "block"
-	let x = e.clientX + 5
-	let y = e.clientY + 5
-	const winW = window.innerWidth
-	const winH = window.innerHeight
-	const menuW = 160
-	const menuH = 200
-	if(x + menuW > winW) x = e.clientX - menuW - 5
-	if(y + menuH > winH) y = e.clientY - menuH - 5
-	menu.style.left = x + "px"
-	menu.style.top = y + "px"
+  selectedFile = path;
+  menu.style.display = "block";
+  let x = e.clientX + 5;
+  let y = e.clientY + 5;
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  const menuW = 160;
+  const menuH = 200;
+  if(x + menuW > winW) x = e.clientX - menuW - 5;
+  if(y + menuH > winH) y = e.clientY - menuH - 5;
+  menu.style.left = x + "px";
+  menu.style.top = y + "px";
 }
+
+// 全局三点菜单（当前目录操作，不用选文件）
+function showGlobalMenu(e){
+  e.preventDefault();
+  e.stopPropagation();
+  const gm = document.getElementById('globalMenu');
+  gm.style.display = "block";
+  let x = e.clientX - 150;
+  let y = e.clientY + 5;
+  gm.style.left = x + "px";
+  gm.style.top = y + "px";
+}
+// 点击空白关闭全局菜单
 document.addEventListener('click', () => {
-  menu.style.display = "none"
-})
-// 上传文件
+  menu.style.display = "none";
+  const gm = document.getElementById('globalMenu');
+  if(gm) gm.style.display = "none";
+});
+
 async function uploadByFile(file, remotePath){
-  return new Promise((resolve)=>{
-    const reader = new FileReader()
-    reader.onload = async e=>{
-      const data = new Uint8Array(e.target.result)
-      const res = await window.go.main.App.UploadFileBin(remotePath, Array.from(data))
-      output.innerText += res + "\n"
-      loadFiles()
-      resolve()
-    }
-    reader.readAsArrayBuffer(file)
-  })
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const data = new Uint8Array(e.target.result);
+      await window.go.main.App.UploadFileBin(remotePath, Array.from(data));
+      loadFiles();
+      resolve();
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
+
 async function openUploadDir(){
-	menu.style.display = "none"
-  fileInput.onchange = async e=>{
-    const f = e.target.files[0]
-    if(!f)return
-    await uploadByFile(f, curPath+"/"+f.name)
-    fileInput.value=""
-  }
-	fileInput.click()
+  menu.style.display = "none";
+  fileInput.onchange = async e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    await uploadByFile(f, curPath + "/" + f.name);
+    fileInput.value = "";
+  };
+  fileInput.click();
 }
+
 async function openUpload(){
-	menu.style.display = "none"
-  fileInput.onchange = async e=>{
-    const f = e.target.files[0]
-    if(!f)return
-    await uploadByFile(f, selectedFile)
-    fileInput.value=""
-  }
-	fileInput.click()
+  menu.style.display = "none";
+  fileInput.onchange = async e => {
+    const f = e.target.files[0];
+    if(!f) return;
+    await uploadByFile(f, selectedFile);
+    fileInput.value = "";
+  };
+  fileInput.click();
 }
+
 async function newFolder(){
-	menu.style.display = "none"
-	const name = prompt("输入文件夹名")
-	if(!name)return
-	const res = await window.go.main.App.Mkdir(curPath + "/" + name)
-	output.innerText += res + "\n"
-	loadFiles()
+  menu.style.display = "none";
+  const name = window.prompt("输入文件夹名称：");
+  if (!name || name.trim() === "") return;
+  await window.go.main.App.Mkdir(curPath + "/" + name.trim());
+  loadFiles();
 }
+
+async function newFile(){
+  // 关闭两个菜单
+  menu.style.display = "none";
+  const gm = document.getElementById('globalMenu');
+  gm.style.display = "none";
+
+  const name = window.prompt("输入文件名称：");
+  if (!name || name.trim() === "") return;
+
+  // 调用后端创建空文件
+  await window.go.main.App.TouchFile(curPath + "/" + name.trim());
+  // 强制刷新列表
+  loadFiles();
+}
+
 async function downloadFile(){
-	menu.style.display = "none"
-	if(!selectedFile)return
-	const fn = selectedFile.split('/').pop()
-	const savePath = await window.go.main.App.SaveFileDialog(fn)
-	if(!savePath)return
-	const res = await window.go.main.App.DownloadFile(selectedFile, savePath)
-	output.innerText += res + "\n"
-  output.scrollTop = output.scrollHeight
+  menu.style.display = "none";
+  if(!selectedFile) return;
+  const fn = selectedFile.split('/').pop();
+  const savePath = await window.go.main.App.SaveFileDialog(fn);
+  if(!savePath) return;
+  await window.go.main.App.DownloadFile(selectedFile, savePath);
 }
+
 async function renameFile(){
-	menu.style.display = "none"
-	const old = selectedFile
-	const newName = prompt("输入新名称", old.split('/').pop())
-	if(!newName)return
-	const newPath = curPath + "/" + newName
-	const res = await window.go.main.App.RenameFile(old, newPath)
-	output.innerText += res + "\n"
-	loadFiles()
+  menu.style.display = "none";
+  if (!selectedFile) return;
+  const oldName = selectedFile.split('/').pop();
+  const newName = window.prompt("输入新名称：", oldName);
+  if (!newName || newName.trim() === "") return;
+  const newPath = curPath + "/" + newName.trim();
+  await window.go.main.App.RenameFile(selectedFile, newPath);
+  loadFiles();
 }
+
 async function delFile(){
-	menu.style.display = "none"
-	if(!confirm("确定删除？"))return
-	const res = await window.go.main.App.RemoveFile(selectedFile)
-	output.innerText += res + "\n"
-	loadFiles()
+  menu.style.display = "none";
+  if(!confirm("确定删除？")) return;
+  await window.go.main.App.RemoveFile(selectedFile);
+  loadFiles();
 }
-// 锁屏功能（原样保留）
+
 let lockPwd = "";
 const lockTime = 5 * 60 * 1000;
 let lockTimer;
+
 function resetLockTimer(){
   clearTimeout(lockTimer);
   if(lockPwd){
-    lockTimer = setTimeout(()=>{
-      document.getElementById("lockScreen").style.display = "flex";
+    lockTimer = setTimeout(() => {
+      const ls = document.getElementById("lockScreen");
+      if(ls) ls.style.display = "flex";
     }, lockTime);
   }
 }
+
 function setLockPwd(){
-  let newPwd = prompt("设置锁屏密码（至少8位）：");
-  if(newPwd === null) return;
-  if(newPwd.length < 8){
-    alert("密码至少8位！");
+  const newPwd = window.prompt("设置锁屏密码（至少8位）：");
+  if (newPwd === null || newPwd.trim().length < 8) {
+    window.alert("密码至少8位！");
     return;
   }
-  lockPwd = newPwd;
-  alert("密码设置成功，5分钟无操作自动锁屏");
+  lockPwd = newPwd.trim();
+  window.alert("密码设置成功，5分钟无操作自动锁屏");
   resetLockTimer();
 }
+
 function clearLockPwd(){
   lockPwd = "";
   clearTimeout(lockTimer);
   alert("已关闭自动锁屏");
-  document.getElementById("lockScreen").style.display = "none";
+  const ls = document.getElementById("lockScreen");
+  if(ls) ls.style.display = "none";
 }
+
 function unlockApp(){
   const input = document.getElementById("lockPwd").value;
   if(input === lockPwd){
-    document.getElementById("lockScreen").style.display = "none";
+    const ls = document.getElementById("lockScreen");
+    if(ls) ls.style.display = "none";
     resetLockTimer();
     document.getElementById("lockPwd").value = "";
   }else{
     alert("密码错误");
   }
 }
+
 window.onmousemove = resetLockTimer;
 window.onkeydown = resetLockTimer;
 </script>
-<!-- 锁屏弹窗 -->
+
 <div id="lockScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:none;z-index:99999;flex-direction:column;align-items:center;justify-content:center;color:#fff">
   <h2>软件已锁定</h2>
   <input type="password" id="lockPwd" placeholder="输入密码" style="padding:10px;font-size:16px;margin:10px;width:240px">

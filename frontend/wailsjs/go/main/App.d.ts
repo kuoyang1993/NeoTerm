@@ -14,8 +14,12 @@ export function RemoveFile(arg1:string):Promise<string>;
 
 export function RenameFile(arg1:string,arg2:string):Promise<string>;
 
+export function RunCommand(arg1:string):Promise<string>;
+
 export function SaveFileDialog(arg1:string):Promise<string>;
 
 export function SendCmd(arg1:string):Promise<string>;
+
+export function TouchFile(arg1:string):Promise<string>;
 
 export function UploadFileBin(arg1:string,arg2:Array<number>):Promise<string>;
